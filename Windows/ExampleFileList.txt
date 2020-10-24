@@ -1,0 +1,10 @@
+#File/Location file to set up file list to copy
+#Format must be Source=Target
+# e.g for a single file:
+# 	"C:\SourceFile.txt"="C:\TargetFolder\TargetFile.txt"
+# e.g for a hole folder ("*" is only placed in the source part):
+#	"C:\SourceFolder\*"="C:\TargetFolder1\TargetFolder2"
+# Lines start with "#" will be ignored
+# ATTENTION: Files will be overwritten on default. Change it in copyFilesInList.ps1 if you do not want it.
+# "C:\SourceFile.txt"="C:\TargetFolder\TargetFile.txt"
+# "C:\SourceFolder\*"="C:\TargetFolder1\TargetFolder2"
