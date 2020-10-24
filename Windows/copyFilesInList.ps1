@@ -3,7 +3,7 @@
 $strFileListLoc="C:\ExampleFileList.txt";
 
 # Shall files in target be overwritten (please insert $true or $false)
-$b_overwrite_Target=$false;
+$b_overwrite_Target=$true;
 
 # Read out FileList and ignoring Lines starting with "#" (=Comment Lines)
 $lstFileList=(Get-Content -Path $strFileListLoc) -notmatch '^#';
