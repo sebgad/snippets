@@ -1,6 +1,6 @@
 ﻿# Define File List location
 # absolute Path, e.g. C:\Users\sebastian\Desktop\fileList.txt, or just filename ( then script and filename must be at the same location )
-$strFileListLoc="C:\ExampleFileList.txt";
+$strFileListLoc="C:\Users\sebastian\Desktop\fileList.txt";
 
 # Shall files in target be overwritten (please insert $true or $false)
 $b_overwrite_Target=$true;
@@ -32,29 +32,25 @@ foreach($strLine in $lstFileList){
         
         # Source must be a single file
         } else {
-            # Check if overwrite-mode is turned on
-            if ($b_overwrite_Target){
-                Write-Host -ForegroundColor Green "Copy $strSource to $strTarget, overwriting file if exists";
+            $strTargetPath = (Split-Path $strTarget);
+            # Check if TargetFolder already exists
+            if (-not(Test-Path $strTargetPath -PathType Container)){
+                # Create Target Folder, Output-Text should not be displayed (Out-Null)
+                mkdir $strTargetPath | Out-Null;
+                Write-Host -ForegroundColor Green "Copy $strSource to $strTarget"
                 Copy-Item $strSource -Destination $strTarget;
-             
-             # Overwrite-mode is turned off
-             } else {
+            
+            # TargetFolder already exist    
+            } else {
                 # Check if target file already exists
-                if (-not(Test-Path $strTarget -PathType Leaf)){
-                    $strTargetPath = (Split-Path $strTarget);
-                    # Check if TargetFolder already exists
-                    if (-not(Test-Path $strTargetPath -PathType Container)){
-                        # Create Target Folder, Output-Text should not be displayed (Out-Null)
-                        mkdir $strTargetPath | Out-Null;
-                        Write-Host -ForegroundColor Green "Copy $strTarget to $strTarget"
-                    }
+                if ((-not(Test-Path $strTarget -PathType Leaf)) -or $b_overwrite_Target){
+                    Write-Host -ForegroundColor Green "Copy $strSource to $strTarget, overwriting file if exists";
                     Copy-Item $strSource -Destination $strTarget;
-                # File already exists 
                 } else {
                     Write-Host -ForegroundColor Yellow "$strTarget already exists, NOT overwriting it";
                 }
-             }
-         }
+            }
+        }
         
     } else {
         Write-Host -ForegroundColor Yellow "Source File Location $($strSource) does not exists!";
