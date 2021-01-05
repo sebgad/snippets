@@ -1,22 +1,18 @@
-﻿# Windows Powershell Script to move a set of files (based on a filter) from a folder
-# on a MTP device (e.g. Android phone) to a folder on a computer, using the Windows Shell.
-# By Daiyan Yingyu, 19 March 2018, based on the (non-working) script found here:
-#   https://www.pstips.net/access-file-system-against-mtp-connection.html
-# as referenced here:
-#   https://powershell.org/forums/topic/powershell-mtp-connections/
+﻿# Windows powershell script to automate one-way copy between mobile phone and desktop pc
+# Reference: https://www.pstips.net/access-file-system-against-mtp-connection.html
+# Reference: https://powershell.org/forums/topic/powershell-mtp-connections/
 #
+# Disclaimer:
 # This Powershell script is provided 'as-is', without any express or implied warranty.
 # In no event will the author be held liable for any damages arising from the use of this script.
-#
-# Again, please note that used 'as-is' this script will MOVE files from you phone:
-# the files will be DELETED from the source (the phone) and MOVED to the computer.
-#
-# If you want to copy files instead, you can replace the MoveHere function call with "CopyHere" instead.
-# But once again, the author can take no responsibility for the use, or misuse, of this script.</em>
-#
-param([string]$phoneName,[string]$sourceFolder,[string]$targetFolder)
+
+param([string]$strPhoneName='HUAWEI P10',
+      [string]$strSourceFolder='\SanDisk-Speicherkarte\DCIM\Camera',
+      [string]$strTargetFolder='C:\Users\sebastian\Desktop\Test')
  
 function Get-ShellProxy
+<#
+#>
 {
     if( -not $global:ShellProxy)
     {
@@ -26,88 +22,102 @@ function Get-ShellProxy
 }
  
 function Get-Phone
+<#
+return Phone Object from defined shell proxy and defined phone name as string.
+#>
 {
-    param($phoneName)
-    $shell = Get-ShellProxy
+    param([string]$str_phone_name)
+    $obj_shell = Get-ShellProxy
     # 17 (0x11) = ssfDRIVES from the ShellSpecialFolderConstants (https://msdn.microsoft.com/en-us/library/windows/desktop/bb774096(v=vs.85).aspx)
     # => "My Computer" — the virtual folder that contains everything on the local computer: storage devices, printers, and Control Panel.
     # This folder can also contain mapped network drives.
-    $shellItem = $shell.NameSpace(17).self
-    $phone = $shellItem.GetFolder.items() | where { $_.name -eq $phoneName }
-    return $phone
+    $obj_shell_item = $obj_shell.NameSpace(17).self
+    $obj_phone = $obj_shell_item.GetFolder.items() | where { $_.name -eq $str_phone_name }
+    return $obj_phone
 }
  
 function Get-SubFolder
+<#
+Get subfolders from a defined path string
+#>
 {
-    param($parent,[string]$path)
-    $pathParts = @( $path.Split([system.io.path]::DirectorySeparatorChar) )
-    $current = $parent
-    foreach ($pathPart in $pathParts)
+    param($obj_parent,
+          [string]$str_path)
+
+    $str_path_parts = @( $str_path.Split([system.io.path]::DirectorySeparatorChar) )
+    $obj_current = $obj_parent
+    
+    foreach ($str_path_part in $str_path_parts)
     {
-        if ($pathPart)
+        if ($str_path_part)
         {
-            $current = $current.GetFolder.items() | where { $_.Name -eq $pathPart }
+            $obj_current = $obj_current.GetFolder.items() | where { $_.Name -eq $str_path_part }
         }
     }
-    return $current
+    return $obj_current
 }
- 
-$phoneFolderPath = $sourceFolder
-$destinationFolderPath = $targetFolder
-# Optionally add additional sub-folders to the destination path, such as one based on date
- 
-$phone = Get-Phone -phoneName $phoneName
-$folder = Get-SubFolder -parent $phone -path $phoneFolderPath
-
-$items = $folder.GetFolder.Items()
 
 
-if ($items)
+$objPhone = Get-Phone -str_phone_name $strPhoneName
+$objSourceFolder = Get-SubFolder -obj_parent $objPhone -str_path $strSourceFolder
+
+$objItems = $objSourceFolder.GetFolder.Items()
+$iCpyItems = 0
+
+if ($objItems)
 {
-    $totalItems = $items.count
-    if ($totalItems -gt 0)
+    Write-Output "creating file list... Please wait"
+    $iTotalItems = $objItems.count
+    Write-Output "Found in Total $($iTotalItems) files on mobile phone"
+    
+    if ($iTotalItems -gt 0)
     {
         # If destination path doesn't exist, create it only if we have some items to move
-        if (-not (test-path $destinationFolderPath) )
+        if (-not (test-path $strTargetFolder) )
         {
-            $created = new-item -itemtype directory -path $destinationFolderPath
+            $created = new-item -itemtype directory -path $strTargetFolder
+            Write-Output "Folder $($strTargetFolder) does not exists, create new."
         }
  
-        Write-Verbose "Processing Path : $phoneName\$phoneFolderPath"
-        Write-Verbose "Copy to : $destinationFolderPath"
+        Write-Verbose "Processing Path : $strPhoneName\$strSourceFolder"
+        Write-Verbose "Copy to : $strTargetFolder"
  
-        $shell = Get-ShellProxy
-        $destinationFolder = $shell.Namespace($destinationFolderPath).self
-        $count = 0;
-        foreach ($item in $items)
+        $objShell = Get-ShellProxy
+        $objTargetFolder = $objShell.Namespace($strTargetFolder).self
+        $iRunCnt = 0;
+        foreach ($objItem in $objItems)
         {
-            $fileName = $item.Name
+            $strFileName = $objItem.Name
  
-            ++$count
-            $percent = [int](($count * 100) / $totalItems)
-            Write-Progress -Activity "Processing Files in $phoneName\$phoneFolderPath" `
-                -status "Processing File ${count} / ${totalItems} (${percent}%)" `
-                -CurrentOperation $fileName `
-                -PercentComplete $percent
+            ++$iRunCnt
+            $fProgress = [int](($iRunCnt * 100) / $iTotalItems)
+            Write-Progress -Activity "Processing Files in $strPhoneName\$strSourceFolder" `
+                -status "Processing File ${iRunCnt} / ${iTotalItems} (${fProgress}%)" `
+                -CurrentOperation $strFileName `
+                -PercentComplete $fProgress
  
             # Check the target file doesn't exist:
-            $targetFilePath = join-path -path $destinationFolderPath -childPath $fileName
-            if (test-path -path "$targetFilePath*")
+            $strTargetFilePath = join-path -path $strTargetFolder -childPath $strFileName
+
+            if (test-path -path "$strTargetFilePath*")
             {
-                Write-Verbose "Destination file exists - file not copied:`n`t$targetFilePath"
+                Write-Verbose "Destination file exists - file not copied:`n`t$strTargetFilePath"
             }
             else
             {
-                $destinationFolder.GetFolder.CopyHere($item)
-                if (test-path -path $targetFilePath)
+                $objTargetFolder.GetFolder.CopyHere($objItem, 20)
+                ++$iCpyItems
+
+                if (test-path -path $strTargetFilePath)
                 {
-                    # Optionally do something with the file, such as modify the name (e.g. removed phone-added prefix, etc.)
+                    # Optionally do something
                 }
                 else
                 {
-                    write-verbose "file already exists in destination to destination:`n`t$targetFilePath"
+                    write-verbose "file already exists in destination: $strTargetFilePath"
                 }
             }
         }
+        Write-Output "In total $($iCpyItems) files were copied"
     }
 }
